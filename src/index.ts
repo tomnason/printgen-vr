@@ -3,6 +3,7 @@ import {
   AssetType,
   Mesh,
   MeshBasicMaterial,
+  MeshStandardMaterial,
   PlaneGeometry,
   SessionMode,
   SRGBColorSpace,
@@ -113,7 +114,7 @@ function createLoadUi() {
   input.placeholder = 'Paste GLTF URL here';
   input.style.width = '260px';
   input.style.marginRight = '6px';
-  input.value = 'https://storage.googleapis.com/printgen-vr-models/models/94d655a4-0b4b-414b-8166-fb7579183c2e.glb'
+  input.value = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/refs/heads/main/2.0/Fox/glTF/Fox.gltf'
 
   const btn = document.createElement('button');
   btn.textContent = 'Load';
@@ -150,8 +151,6 @@ async function loadModelUrl(url: string) {
   vrLog(`Loading model: ${url}`);
 
   try {
-    // three/examples may not provide type declarations in this project; ignore TypeScript for this dynamic import
-    // @ts-ignore
     const mod = await import('three/examples/jsm/loaders/GLTFLoader');
     const { GLTFLoader } = mod as any;
     const loader = new GLTFLoader();
@@ -161,13 +160,21 @@ async function loadModelUrl(url: string) {
         (gltf: any) => {
           try {
             const mesh = gltf.scene;
+            // create a blue standard material
+            const blueMat = new MeshStandardMaterial({ color: 0x3366ff });
+            mesh.traverse((child: any) => {
+              if (child && child.isMesh) {
+                // apply the material while preserving geometry
+                child.material = blueMat;
+              }
+            });
             mesh.position.set(0, 0, -2);
-            mesh.scale.setScalar(1);
+            mesh.scale.setScalar(0.01);
             appWorld
               .createTransformEntity(mesh)
               .addComponent(Interactable)
               .addComponent(DistanceGrabbable, { movementMode: MovementMode.MoveFromTarget });
-            vrLog('Model loaded via GLTFLoader');
+            vrLog('Model loaded via GLTFLoader (blue material applied)');
             resolve();
           } catch (e) {
             reject(e);

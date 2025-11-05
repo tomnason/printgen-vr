@@ -1,81 +1,135 @@
 # app.py
-# Main FastAPI application to handle 3D model generation requests.
-
 import os
 import uuid
+import torch
+import logging
+import logging.config
+import time
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from shap_e_model import generate_3d_model
+# --- Local Imports ---
+from shap_e_model import generate_3d_model, load_shap_e_model_and_diffusion
 from converters import convert_glb_to_stl
 from utils_gcs import upload_to_gcs
 
-# Initialize the FastAPI app.
+# --- Logging Configuration ---
+# A dictionary-based configuration for Python's logging module.
+# This provides a consistent format with timestamps for all log messages.
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "default": {
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+        },
+    },
+    "loggers": {
+        "api": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"handlers": ["default"], "level": "WARNING", "propagate": False},
+        "uvicorn.access": {"handlers": ["default"], "level": "WARNING", "propagate": False},
+    },
+}
+
+# Apply the logging configuration.
+logging.config.dictConfig(LOGGING_CONFIG)
+# Get a logger for this module.
+logger = logging.getLogger("api")
+
+# --- Global Variables ---
+MODELS = {}
+DEVICE = None
+
 app = FastAPI()
 
-# Retrieve the GCS bucket name from environment variables.
-# This is a best practice for configuration.
+@app.on_event("startup")
+async def startup_event():
+    """Load the Shap-E model into memory when the application starts."""
+    global MODELS, DEVICE
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    logger.info(f"--- Application starting up on device: {DEVICE} ---")
+    MODELS = load_shap_e_model_and_diffusion(DEVICE)
+    logger.info("--- Shap-E models loaded successfully ---")
+
 GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME")
 
-# Create a temporary directory for local file storage if it doesn't exist.
 os.makedirs("temp", exist_ok=True)
 
 class PromptRequest(BaseModel):
-    """Defines the structure of the request body for the /generate endpoint."""
     prompt: str
+    quality: str = "normal"
 
 class GenerationResponse(BaseModel):
-    """Defines the structure of the response body for the /generate endpoint."""
     glb_url: str
     stl_url: str
 
 @app.post("/generate", response_model=GenerationResponse)
 async def generate(request: PromptRequest):
-    """
-    API endpoint to generate a 3D model from a text prompt.
-    It generates a .glb file, converts it to .stl, uploads both to GCS,
-    and returns their public URLs.
-    """
+    request_start_time = time.perf_counter()
+    request_id = str(uuid.uuid4())
+    logger.info(f"Request ID: {request_id} | Starting generation for prompt: '{request.prompt}'")
+
     if not GCS_BUCKET_NAME:
         raise HTTPException(status_code=500, detail="GCS_BUCKET_NAME environment variable not set.")
+    if not MODELS:
+        raise HTTPException(status_code=503, detail="Models are not loaded yet. Please wait.")
+
+    local_glb_path = f"temp/{request_id}.glb"
+    local_stl_path = f"temp/{request_id}.stl"
 
     try:
-        # Generate a unique ID for this request to avoid filename conflicts.
-        request_id = str(uuid.uuid4())
-        
-        # Define local and GCS paths for the generated files.
-        local_glb_path = f"temp/{request_id}.glb"
-        local_stl_path = f"temp/{request_id}.stl"
+        # --- Step 1: 3D Model Generation (GPU Intensive) ---
+        step_1_start = time.perf_counter()
+        generate_3d_model(
+            prompt=request.prompt,
+            file_path=local_glb_path,
+            models=MODELS,
+            device=DEVICE,
+            quality=request.quality
+        )
+        step_1_duration = time.perf_counter() - step_1_start
+        logger.info(f"Request ID: {request_id} | Step 1/3: 3D model generation finished in {step_1_duration:.2f} seconds.")
+
+        # --- Step 2: 3D Conversion (CPU Intensive) ---
+        step_2_start = time.perf_counter()
+        convert_glb_to_stl(local_glb_path, local_stl_path)
+        step_2_duration = time.perf_counter() - step_2_start
+        logger.info(f"Request ID: {request_id} | Step 2/3: GLB to STL conversion finished in {step_2_duration:.2f} seconds.")
+
+        # --- Step 3: Cloud Storage Upload (Network I/O) ---
+        step_3_start = time.perf_counter()
         gcs_glb_path = f"models/{request_id}.glb"
         gcs_stl_path = f"models/{request_id}.stl"
-
-        # Step 1: Generate the 3D model (.glb) from the prompt.
-        print(f"Generating 3D model for prompt: '{request.prompt}'")
-        generate_3d_model(request.prompt, local_glb_path)
-
-        # Step 2: Convert the .glb file to .stl format.
-        print("Converting GLB to STL...")
-        convert_glb_to_stl(local_glb_path, local_stl_path)
-
-        # Step 3: Upload both files to Google Cloud Storage.
-        print("Uploading files to GCS...")
         glb_url = upload_to_gcs(GCS_BUCKET_NAME, local_glb_path, gcs_glb_path)
         stl_url = upload_to_gcs(GCS_BUCKET_NAME, local_stl_path, gcs_stl_path)
+        step_3_duration = time.perf_counter() - step_3_start
+        logger.info(f"Request ID: {request_id} | Step 3/3: GCS upload finished in {step_3_duration:.2f} seconds.")
 
+        total_duration = time.perf_counter() - request_start_time
+        logger.info(f"Request ID: {request_id} | Successfully completed all steps in {total_duration:.2f} seconds.")
+        
         return {"glb_url": glb_url, "stl_url": stl_url}
 
     except Exception as e:
-        # Handle any exceptions that occur during the process.
-        print(f"An error occurred: {e}")
+        logger.error(f"Request ID: {request_id} | An error occurred during the process: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # Clean up local temporary files.
+        # --- Cleanup ---
         if os.path.exists(local_glb_path):
             os.remove(local_glb_path)
         if os.path.exists(local_stl_path):
             os.remove(local_stl_path)
+        logger.info(f"Request ID: {request_id} | Cleaned up temporary files.")
 
 @app.get("/")
 def read_root():
-    """A simple root endpoint to confirm the service is running."""
-    return {"status": "ok"}
+    return {"status": "ok", "device": str(DEVICE)}

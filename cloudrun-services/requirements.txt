@@ -14,7 +14,6 @@ ftfy
 regex
 numpy
 Pillow
-# Install the specific version of shap-e from OpenAI's GitHub
 git+https://github.com/openai/shap-e.git
 
 # Trimesh for 3D model conversion
@@ -23,9 +22,10 @@ trimesh
 # Required by a shap-e utility for progress bars
 ipywidgets
 
+# --- NEW: Add undeclared dependency for shap-e ---
+PyYAML
+
 # For GPU support with PyTorch
-# Ensure you have a compatible CUDA version in your Docker image
-# This version is for CUDA 12.1, adjust if your base image has a different version
 --extra-index-url https://download.pytorch.org/whl/cu121
 torchvision
 torchaudio
