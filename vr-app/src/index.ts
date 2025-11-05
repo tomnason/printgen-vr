@@ -150,6 +150,8 @@ async function loadModelUrl(url: string) {
   vrLog(`Loading model: ${url}`);
 
   try {
+    // three/examples may not provide type declarations in this project; ignore TypeScript for this dynamic import
+    // @ts-ignore
     const mod = await import('three/examples/jsm/loaders/GLTFLoader');
     const { GLTFLoader } = mod as any;
     const loader = new GLTFLoader();
