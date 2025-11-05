@@ -1,14 +1,16 @@
-# IWSDK Starter Template
+# Build the Docker Container
+`docker build -t shap-e-api-local .`
 
-This folder is a source template used by `scripts/generate-starters.cjs` to produce 8 runnable variants:
+This command executes the instructions in your `Dockerfile`, downloading the base image, installing dependencies, and copying your code into the image. This may take some time, especially the first time you run it, as it needs to download the CUDA base image and the PyTorch libraries.
 
-- `starter-<vr|ar>-<manual|metaspatial>-<ts|js>`
+# Run the Docker Container
 
-Do not run this template directly. The generator will:
+*   Maps port `8080` of the container to port `8080` on your local machine.
+*   Enables GPU access for the container with `--gpus all`.
+*   Sets the `GCS_BUCKET_NAME` environment variable.
+*   Mounts your local `gcloud` config directory into the container so the application can find and use your authentication credentials.
 
-- Copy a variant-specific `src/index.ts` (see `src/index-*.ts`).
-- Install the matching Vite config from `configs/`.
-- Keep only the required metaspatial folder (renamed to `metaspatial`).
-- Prune unused assets and dev dependencies.
+Execute this command in your terminal:
 
-UI is defined in `ui/welcome.uikitml`; the Vite UIKitML plugin compiles it to `public/ui/welcome.json` during build in generated variants.
+```bash
+docker run --rm -p 8080:8080 --gpus all --env-file .env -v ~/.config/gcloud:/root/.config/gcloud shap-e-api-local
