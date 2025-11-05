@@ -113,7 +113,7 @@ function createLoadUi() {
   input.placeholder = 'Paste GLTF URL here';
   input.style.width = '260px';
   input.style.marginRight = '6px';
-  input.value = 'https://storage.googleapis.com/printgen-vr-models/models/94d655a4-0b4b-414b-8166-fb7579183c2e.glb'
+  input.value = 'https://storage.googleapis.com/printgen-vr-models/models/86349d32-7abe-4312-9ddf-2e0e9698c07b.glb'
 
   const btn = document.createElement('button');
   btn.textContent = 'Load';

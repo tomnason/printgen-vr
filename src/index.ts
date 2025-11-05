@@ -173,7 +173,11 @@ async function loadModelUrl(url: string) {
             appWorld
               .createTransformEntity(mesh)
               .addComponent(Interactable)
-              .addComponent(DistanceGrabbable, { movementMode: MovementMode.MoveFromTarget });
+              .addComponent(DistanceGrabbable, {
+                movementMode: MovementMode.MoveFromTarget,
+                allowRotation: true,
+                rotationMode: 'controller',
+              });
             vrLog('Model loaded via GLTFLoader (blue material applied)');
             resolve();
           } catch (e) {
@@ -233,6 +237,8 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     .addComponent(Interactable)
     .addComponent(DistanceGrabbable, {
       movementMode: MovementMode.MoveFromTarget,
+      allowRotation: true,
+      rotationMode: 'hands',
     });
 
   const { scene: robotMesh } = AssetManager.getGLTF("robot")!;
