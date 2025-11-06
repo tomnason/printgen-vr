@@ -8,6 +8,7 @@ import {
   SRGBColorSpace,
   AssetManager,
   World,
+  IBLTexture,
 } from "@iwsdk/core";
 
 import {
@@ -233,6 +234,12 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   robotMesh.position.set(-1.2, 0.4, -1.8);
   robotMesh.scale.setScalar(1);
   
+  const levelRoot = world.activeLevel.value;
+
+  levelRoot.addComponent(IBLTexture, {
+    src: 'room', // Built-in room environment
+    intensity: 0.8, // Slightly brighter than default
+  });
 
   world
     .createTransformEntity(robotMesh)
