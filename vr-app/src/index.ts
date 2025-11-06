@@ -10,6 +10,7 @@ import {
   World,
   IBLTexture,
 } from "@iwsdk/core";
+import { PanelDocument, UIKitDocument } from "@iwsdk/core";
 
 import {
   AudioSource,
@@ -266,18 +267,183 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     });
   panelEntity.object3D!.position.set(0, 1.29, -1.9);
 
-  const webxrLogoTexture = AssetManager.getTexture("webxr")!;
-  webxrLogoTexture.colorSpace = SRGBColorSpace;
-  const logoBanner = new Mesh(
-    new PlaneGeometry(3.39, 0.96),
-    new MeshBasicMaterial({
-      map: webxrLogoTexture,
-      transparent: true,
-    }),
-  );
-  world.createTransformEntity(logoBanner);
-  logoBanner.position.set(0, 1, 1.8);
-  logoBanner.rotateY(Math.PI);
+  const userInputPanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "/ui/userinput.json",
+      maxHeight: 4,
+      maxWidth: 5,
+    })
+    .addComponent(Interactable)
+    .addComponent(ScreenSpace, {
+      top: "20px",
+      left: "400px",
+      height: "40%",
+    });
+  userInputPanel.object3D!.position.set(0, 1.29, -1.9);
+
+  // Wire up the Generate button using the PanelDocument (UIKit) so element
+  // lookups work even if PanelUI renders into an internal document.
+  try {
+    const doc = PanelDocument.data.document[userInputPanel.index] as UIKitDocument | undefined;
+    if (!doc) {
+      // If the document isn't ready yet, subscribe to qualify events in PanelSystem
+      // or poll for a short time. We'll poll briefly here.
+      let attempts = 0;
+      const poll = setInterval(() => {
+        const d = PanelDocument.data.document[userInputPanel.index] as UIKitDocument | undefined;
+        attempts += 1;
+        if (d) {
+          clearInterval(poll);
+          wirePanelDocument(d);
+        } else if (attempts > 10) {
+          clearInterval(poll);
+          vrLog('Panel document for user input not available');
+        }
+      }, 200);
+    } else {
+      wirePanelDocument(doc);
+    }
+  } catch (e: any) {
+    vrLog(`Error initializing panel wiring: ${e?.message ?? String(e)}`);
+  }
+
+  function wirePanelDocument(document: UIKitDocument) {
+    try {
+      // UIKit elements expose a getElementById API similar to DOM
+      const promptEl = document.getElementById('prompt') as any;
+      const generateEl = document.getElementById('generate') as any;
+      const statusEl = document.getElementById('status') as any;
+
+      if (!generateEl) {
+        vrLog('Generate element not found in panel document');
+        return;
+      }
+
+      generateEl.addEventListener('click', async () => {
+        // For input elements in UIKit, value may be exposed as .value or via getProperties().
+        // Debug the available shape so we can adapt if necessary.
+        try {
+          vrLog(`promptEl shape: keys=${Object.keys(promptEl || {}).join(',')}`);
+        } catch (_) {}
+
+        let prompt = '';
+        try {
+          if (promptEl) {
+            // 1) direct value
+            if (typeof promptEl.value === 'string' && promptEl.value) {
+              prompt = promptEl.value;
+              vrLog('prompt read from promptEl.value');
+            }
+
+            // 2) inputProperties (UIKit seems to expose this)
+            if (!prompt && promptEl.inputProperties && typeof promptEl.inputProperties.value === 'string') {
+              prompt = promptEl.inputProperties.value;
+              vrLog('prompt read from promptEl.inputProperties.value');
+            }
+
+            // 3) properties (fallback)
+            if (!prompt && promptEl.properties && typeof promptEl.properties.value === 'string') {
+              prompt = promptEl.properties.value;
+              vrLog('prompt read from promptEl.properties.value');
+            }
+            if (!prompt && promptEl.properties && typeof promptEl.properties.text === 'string') {
+              prompt = promptEl.properties.text;
+              vrLog('prompt read from promptEl.properties.text');
+            }
+
+            // 4) getProperties() API
+            if (!prompt && promptEl.getProperties) {
+              try {
+                const props = promptEl.getProperties();
+                if (props) {
+                  prompt = (props.value ?? props.text ?? '') as string;
+                  if (prompt) vrLog('prompt read from promptEl.getProperties()');
+                }
+              } catch (_) {}
+            }
+
+            // 5) getProperty API
+            if (!prompt && promptEl.getProperty) {
+              try {
+                prompt = (promptEl.getProperty('value') ?? promptEl.getProperty('text') ?? '') as string;
+                if (prompt) vrLog('prompt read from promptEl.getProperty()');
+              } catch (_) {}
+            }
+
+            // 6) underlying DOM element
+            if (!prompt && promptEl.element && typeof promptEl.element.value === 'string') {
+              prompt = promptEl.element.value;
+              vrLog('prompt read from promptEl.element.value');
+            }
+          }
+        } catch (err: any) {
+          vrLog(`Error reading prompt element: ${err?.message ?? String(err)}`);
+        }
+
+        if (!prompt) {
+          if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Please enter a prompt.' });
+          if (statusEl && !statusEl.setProperties) statusEl.textContent = 'Please enter a prompt.';
+          vrLog('Generate: empty prompt');
+          return;
+        }
+
+        if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Sending request...' });
+        if (statusEl && !statusEl.setProperties) statusEl.textContent = 'Sending request...';
+        vrLog(`Generate: sending prompt: ${prompt}`);
+
+        try {
+          const res = await fetch('http://localhost:8080/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, quality: 'ultra' }),
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            const msg = `Generate failed: ${res.status} ${res.statusText} - ${text}`;
+            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: msg });
+            if (statusEl && !statusEl.setProperties) statusEl.textContent = msg;
+            vrLog(msg);
+            return;
+          }
+
+          let bodyText = '';
+          try {
+            const data = await res.json();
+            bodyText = JSON.stringify(data);
+          } catch (e) {
+            bodyText = await res.text();
+          }
+
+          const successMsg = `Generate success: ${bodyText}`;
+          if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: successMsg });
+          if (statusEl && !statusEl.setProperties) statusEl.textContent = successMsg;
+          vrLog(successMsg);
+        } catch (err: any) {
+          const msg = `Generate error: ${err?.message ?? String(err)}`;
+          if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: msg });
+          if (statusEl && !statusEl.setProperties) statusEl.textContent = msg;
+          vrLog(msg);
+        }
+      });
+    } catch (e: any) {
+      vrLog(`Error wiring panel document: ${e?.message ?? String(e)}`);
+    }
+  }
+
+  // const webxrLogoTexture = AssetManager.getTexture("webxr")!;
+  // webxrLogoTexture.colorSpace = SRGBColorSpace;
+  // const logoBanner = new Mesh(
+  //   new PlaneGeometry(3.39, 0.96),
+  //   new MeshBasicMaterial({
+  //     map: webxrLogoTexture,
+  //     transparent: true,
+  //   }),
+  // );
+  // world.createTransformEntity(logoBanner);
+  // logoBanner.position.set(0, 1, 1.8);
+  // logoBanner.rotateY(Math.PI);
 
   world.registerSystem(PanelSystem).registerSystem(RobotSystem);
 

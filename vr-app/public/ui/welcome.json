@@ -7,7 +7,7 @@
         "type": "container",
         "sourceTag": "span",
         "children": [
-          "Hello, Immersive Web!"
+          "Generate your 3d object"
         ],
         "properties": {
           "class": "heading"
@@ -144,7 +144,7 @@
         "column": 0
       },
       "end": {
-        "line": 46,
+        "line": 48,
         "column": 6
       }
     },
@@ -160,21 +160,21 @@
     },
     "uid-3": {
       "start": {
-        "line": 44,
+        "line": 45,
         "column": 2
       },
       "end": {
-        "line": 44,
+        "line": 45,
         "column": 169
       }
     },
     "uid-4": {
       "start": {
-        "line": 45,
+        "line": 46,
         "column": 2
       },
       "end": {
-        "line": 45,
+        "line": 46,
         "column": 42
       }
     }

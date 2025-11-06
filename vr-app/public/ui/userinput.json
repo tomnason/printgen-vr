@@ -1,0 +1,312 @@
+{
+  "element": {
+    "type": "container",
+    "sourceTag": "div",
+    "children": [
+      {
+        "type": "container",
+        "sourceTag": "p",
+        "children": [
+          "Generate your 3d object"
+        ],
+        "properties": {
+          "class": "h1"
+        },
+        "defaultProperties": {},
+        "dataUid": "uid-2"
+      },
+      {
+        "type": "container",
+        "sourceTag": "p",
+        "children": [
+          "What do you want to create?"
+        ],
+        "properties": {
+          "class": "label"
+        },
+        "defaultProperties": {},
+        "dataUid": "uid-3"
+      },
+      {
+        "type": "input",
+        "sourceTag": "input",
+        "properties": {
+          "type": "text",
+          "id": "prompt",
+          "value": "A convertible sports car with a driver and a passenger."
+        },
+        "defaultProperties": {},
+        "dataUid": "uid-4"
+      },
+      {
+        "type": "container",
+        "sourceTag": "button",
+        "children": [
+          "Record voice"
+        ],
+        "properties": {
+          "class": "button",
+          "id": "record"
+        },
+        "defaultProperties": {
+          "verticalAlign": "middle",
+          "textAlign": "center",
+          "cursor": "pointer"
+        },
+        "dataUid": "uid-5"
+      },
+      {
+        "type": "container",
+        "sourceTag": "button",
+        "children": [
+          "Generate"
+        ],
+        "properties": {
+          "class": "button",
+          "id": "generate"
+        },
+        "defaultProperties": {
+          "verticalAlign": "middle",
+          "textAlign": "center",
+          "cursor": "pointer"
+        },
+        "dataUid": "uid-6"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          "Status here..."
+        ],
+        "properties": {
+          "class": "status",
+          "id": "status"
+        },
+        "defaultProperties": {},
+        "dataUid": "uid-7"
+      }
+    ],
+    "properties": {
+      "class": "panel-input"
+    },
+    "defaultProperties": {},
+    "dataUid": "uid-1"
+  },
+  "classes": {
+    "panel-input": {
+      "content": {
+        "alignItems": "flex-start",
+        "padding": "2",
+        "width": "40",
+        "display": "flex",
+        "flexDirection": "column",
+        "backgroundColor": "#09090b",
+        "borderColor": "#27272a",
+        "borderWidth": "0.15",
+        "borderRadius": "3",
+        "color": "#ffffff"
+      }
+    },
+    "h1": {
+      "content": {
+        "fontSize": "2",
+        "marginBottom": "1"
+      }
+    },
+    "label": {
+      "content": {
+        "fontSize": "1",
+        "marginBottom": "1"
+      }
+    },
+    "button": {
+      "content": {
+        "width": "100%",
+        "padding": "1",
+        "marginTop": "1",
+        "backgroundColor": "#fafafa",
+        "color": "#09090b",
+        "borderRadius": "1.5",
+        "borderWidth": "0.1",
+        "borderColor": "#e4e4e7",
+        "fontSize": "2",
+        "fontWeight": "medium",
+        "textAlign": "center",
+        "cursor": "pointer"
+      }
+    },
+    "status": {
+      "content": {
+        "fontSize": "1",
+        "marginTop": "1"
+      }
+    },
+    "__id__prompt": {
+      "content": {
+        "backgroundColor": "#ffffff",
+        "color": "#000000",
+        "fontSize": "1",
+        "width": "100%",
+        "padding": "1"
+      }
+    },
+    "__id__record": {
+      "content": {}
+    },
+    "__id__generate": {
+      "content": {}
+    }
+  },
+  "ranges": {
+    "panel-input": {
+      "start": {
+        "line": 1,
+        "column": 4
+      },
+      "end": {
+        "line": 1,
+        "column": 16
+      }
+    },
+    "h1": {
+      "start": {
+        "line": 14,
+        "column": 4
+      },
+      "end": {
+        "line": 14,
+        "column": 7
+      }
+    },
+    "label": {
+      "start": {
+        "line": 19,
+        "column": 4
+      },
+      "end": {
+        "line": 19,
+        "column": 10
+      }
+    },
+    "button": {
+      "start": {
+        "line": 32,
+        "column": 4
+      },
+      "end": {
+        "line": 32,
+        "column": 11
+      }
+    },
+    "status": {
+      "start": {
+        "line": 53,
+        "column": 4
+      },
+      "end": {
+        "line": 53,
+        "column": 11
+      }
+    },
+    "__id__prompt": {
+      "start": {
+        "line": 24,
+        "column": 4
+      },
+      "end": {
+        "line": 24,
+        "column": 11
+      }
+    },
+    "__id__record": {
+      "start": {
+        "line": 47,
+        "column": 4
+      },
+      "end": {
+        "line": 47,
+        "column": 11
+      }
+    },
+    "__id__generate": {
+      "start": {
+        "line": 50,
+        "column": 4
+      },
+      "end": {
+        "line": 50,
+        "column": 13
+      }
+    },
+    "uid-1": {
+      "start": {
+        "line": 59,
+        "column": 0
+      },
+      "end": {
+        "line": 69,
+        "column": 6
+      }
+    },
+    "uid-2": {
+      "start": {
+        "line": 61,
+        "column": 4
+      },
+      "end": {
+        "line": 61,
+        "column": 45
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 62,
+        "column": 4
+      },
+      "end": {
+        "line": 62,
+        "column": 52
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 63,
+        "column": 4
+      },
+      "end": {
+        "line": 63,
+        "column": 101
+      }
+    },
+    "uid-5": {
+      "start": {
+        "line": 64,
+        "column": 4
+      },
+      "end": {
+        "line": 64,
+        "column": 60
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 65,
+        "column": 4
+      },
+      "end": {
+        "line": 65,
+        "column": 58
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 67,
+        "column": 4
+      },
+      "end": {
+        "line": 67,
+        "column": 56
+      }
+    }
+  }
+}

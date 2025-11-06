@@ -1,0 +1,70 @@
+<style>
+    .panel-input {
+        align-items: flex-start;
+        padding: 2;
+        width: 40;
+        display: flex;
+        flex-direction: column;
+        background-color: #09090b;
+        border-color: #27272a;
+        border-width: 0.15;
+        border-radius: 3;
+        color: #ffffff;
+    }
+    
+    .h1 {
+        font-size:2;
+        margin-bottom: 1;
+    }
+
+    .label { 
+        font-size: 1; 
+        margin-bottom: 1;
+    }
+
+    #prompt {
+        background-color: #ffffff;
+        color: #000000;
+        font-size: 1;
+        width: 100%;
+        padding: 1;
+    }
+
+    .button {
+        width: 100%;
+        padding: 1;
+        margin-top: 1;
+        background-color: #fafafa;
+        color: #09090b;
+        border-radius: 1.5;
+        border-width: 0.1;
+        border-color: #e4e4e7;
+        font-size: 2;
+        font-weight: medium;
+        text-align: center;
+        cursor: pointer;
+
+    }
+    #record {
+
+    }
+    #generate {
+
+    }
+    .status { 
+        font-size: 1;
+        margin-top: 1;
+    }
+
+</style>
+<div class="panel-input">
+
+    <p class="h1">Generate your 3d object</p>
+    <p class="label">What do you want to create?</p>
+    <input type="text" id="prompt" value="A convertible sports car with a driver and a passenger." />
+    <button class="button" id="record">Record voice</button>
+    <button class="button" id="generate">Generate</button>
+
+    <div class="status" id="status">Status here...</div>
+
+</div>

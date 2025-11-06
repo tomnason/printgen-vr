@@ -51,6 +51,17 @@ DEVICE = None
 
 app = FastAPI()
 
+# --- NEW: Add the CORS Middleware to your app ---
+# This tells browsers that it's okay for web pages from any origin
+# to make requests to this API.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"], # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"], # Allows all headers
+)
+
 @app.on_event("startup")
 async def startup_event():
     """Load the Shap-E model into memory when the application starts."""
