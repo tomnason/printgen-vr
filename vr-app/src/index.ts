@@ -31,8 +31,7 @@ import { Robot } from "./robot.js";
 import { RobotSystem } from "./robot.js";
 
 
-
-
+const VITE_API_ENDPOINT = (import.meta as any).env?.VITE_API_ENDPOINT ?? '';
 const assets: AssetManifest = {
   chimeSound: {
     url: "/audio/chime.mp3",
@@ -71,28 +70,8 @@ export function vrLog(message: string) {
   entry.textContent = message;
   logDiv.appendChild(entry);
   logDiv.scrollTop = logDiv.scrollHeight;
+  console.log(message);
 }
-
-// Fetch a test API and log the result into the VR console
-async function fetchAndLogApi() {
-  try {
-    // Example public API (JSON placeholder)
-    const res = await fetch('https://jsonplaceholder.typicode.com/todos/1');
-    if (!res.ok) {
-      vrLog(`API error: ${res.status} ${res.statusText}`);
-      return;
-    }
-    const data = await res.json();
-    // Log a compact string representation
-    vrLog(`API response: ${JSON.stringify(data)}`);
-  } catch (err: any) {
-    vrLog(`Fetch failed: ${err?.message ?? String(err)}`);
-  }
-}
-
-// Run the fetch but don't block world creatio
-await fetchAndLogApi();
-
 
 let appWorld: any = null;
 
@@ -271,8 +250,8 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     .createTransformEntity()
     .addComponent(PanelUI, {
       config: "/ui/userinput.json",
-      maxHeight: 4,
-      maxWidth: 5,
+      maxHeight: 0.8,
+      maxWidth: 1.6,
     })
     .addComponent(Interactable)
     .addComponent(ScreenSpace, {
@@ -280,7 +259,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       left: "400px",
       height: "40%",
     });
-  userInputPanel.object3D!.position.set(0, 1.29, -1.9);
+  userInputPanel.object3D!.position.set(0, 3, -1.9);
 
   // Wire up the Generate button using the PanelDocument (UIKit) so element
   // lookups work even if PanelUI renders into an internal document.
@@ -327,55 +306,17 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
           vrLog(`promptEl shape: keys=${Object.keys(promptEl || {}).join(',')}`);
         } catch (_) {}
 
+        // Simplified prompt extraction: prefer inputProperties.value (UIKit),
+        // then fall back to the element's value property.
         let prompt = '';
         try {
           if (promptEl) {
-            // 1) direct value
-            if (typeof promptEl.value === 'string' && promptEl.value) {
-              prompt = promptEl.value;
-              vrLog('prompt read from promptEl.value');
-            }
+            // prefer the structured inputProperties value if available
+            prompt = (promptEl.inputProperties && typeof promptEl.inputProperties.value === 'string')
+              ? promptEl.inputProperties.value
+              : (typeof promptEl.value === 'string' ? promptEl.value : '');
 
-            // 2) inputProperties (UIKit seems to expose this)
-            if (!prompt && promptEl.inputProperties && typeof promptEl.inputProperties.value === 'string') {
-              prompt = promptEl.inputProperties.value;
-              vrLog('prompt read from promptEl.inputProperties.value');
-            }
-
-            // 3) properties (fallback)
-            if (!prompt && promptEl.properties && typeof promptEl.properties.value === 'string') {
-              prompt = promptEl.properties.value;
-              vrLog('prompt read from promptEl.properties.value');
-            }
-            if (!prompt && promptEl.properties && typeof promptEl.properties.text === 'string') {
-              prompt = promptEl.properties.text;
-              vrLog('prompt read from promptEl.properties.text');
-            }
-
-            // 4) getProperties() API
-            if (!prompt && promptEl.getProperties) {
-              try {
-                const props = promptEl.getProperties();
-                if (props) {
-                  prompt = (props.value ?? props.text ?? '') as string;
-                  if (prompt) vrLog('prompt read from promptEl.getProperties()');
-                }
-              } catch (_) {}
-            }
-
-            // 5) getProperty API
-            if (!prompt && promptEl.getProperty) {
-              try {
-                prompt = (promptEl.getProperty('value') ?? promptEl.getProperty('text') ?? '') as string;
-                if (prompt) vrLog('prompt read from promptEl.getProperty()');
-              } catch (_) {}
-            }
-
-            // 6) underlying DOM element
-            if (!prompt && promptEl.element && typeof promptEl.element.value === 'string') {
-              prompt = promptEl.element.value;
-              vrLog('prompt read from promptEl.element.value');
-            }
+            if (prompt) vrLog(`prompt read from ${promptEl.inputProperties && promptEl.inputProperties.value ? 'promptEl.inputProperties.value' : 'promptEl.value'}`);
           }
         } catch (err: any) {
           vrLog(`Error reading prompt element: ${err?.message ?? String(err)}`);
@@ -391,9 +332,10 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
         if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Sending request...' });
         if (statusEl && !statusEl.setProperties) statusEl.textContent = 'Sending request...';
         vrLog(`Generate: sending prompt: ${prompt}`);
-
+        console.log(`VITE_API_ENDPOINT: ${VITE_API_ENDPOINT}`);
         try {
-          const res = await fetch('/generate', {
+          const apiUrl = VITE_API_ENDPOINT ? `${VITE_API_ENDPOINT.replace(/\/$/, '')}/generate` : '/generate';
+          const res = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt, quality: 'fast' }),

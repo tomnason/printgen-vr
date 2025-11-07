@@ -14,3 +14,6 @@ Execute this command in your terminal:
 
 ```bash
 docker run --rm -p 8080:8080 --gpus all --env-file .env -v ${env:APPDATA}\gcloud:/root/.config/gcloud  /cloudrun-services shap-e-api-local
+```
+
+

@@ -1,0 +1,23 @@
+# This file defines the build steps for Google Cloud Build.
+# Run this from the project root with: gcloud builds submit --config cloudbuild.yaml .
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  
+  # This 'dir' property is the key. It tells Cloud Build to 'cd' into
+  # the 'cloudrun-services' directory before running the build command.
+  dir: 'cloudrun-services'
+  
+  # These are the arguments passed to the 'docker build' command.
+  args: [
+    'build',
+    # The image tag is populated with variables from your gcloud command.
+    '--tag', 'europe-west1-docker.pkg.dev/printgen-vr/cloudrun-hackathon-images/shap-e-api:latest',
+    # The Dockerfile is now just 'Dockerfile' relative to the 'dir' above.
+    '--file', 'Dockerfile',
+    # The build context is '.' which now correctly refers to the 'cloudrun-services' directory.
+    '.'
+  ]
+
+# This tells Cloud Build to push the final tagged image to your Artifact Registry.
+images:
+- 'europe-west1-docker.pkg.dev/printgen-vr/cloudrun-hackathon-images/shap-e-api:latest'
