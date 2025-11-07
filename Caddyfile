@@ -1,0 +1,21 @@
+# Block 1: The main HTTPS entrypoint for your VR App
+# We explicitly hardcode both localhost and your IP.
+localhost:8443, 192.168.8.103:8443 {
+    tls internal
+
+    # Routing logic
+    handle /generate* {
+        reverse_proxy api:8080
+    }
+    handle {
+        reverse_proxy http://frontend:8081 {
+            header_up Host {http.request.host}
+        }
+    }
+}
+
+# Block 2: The HTTP entrypoint to catch hardcoded SDK requests
+# Also hardcode both hosts here.
+localhost:8080, 192.168.8.103:8080 {
+    reverse_proxy api:8080
+}

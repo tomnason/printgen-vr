@@ -7,6 +7,8 @@ import logging.config
 import time
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # --- Local Imports ---
 from shap_e_model import generate_3d_model, load_shap_e_model_and_diffusion

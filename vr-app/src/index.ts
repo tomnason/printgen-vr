@@ -393,10 +393,10 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
         vrLog(`Generate: sending prompt: ${prompt}`);
 
         try {
-          const res = await fetch('http://localhost:8080/generate', {
+          const res = await fetch('/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, quality: 'ultra' }),
+            body: JSON.stringify({ prompt, quality: 'fast' }),
           });
 
           if (!res.ok) {
@@ -412,6 +412,27 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
           try {
             const data = await res.json();
             bodyText = JSON.stringify(data);
+
+            // If the backend returned a glb_url, automatically load it into the world
+            if (data && data.glb_url) {
+              const glbUrl = data.glb_url as string;
+              const loadingMsg = `Generate success, loading GLB: ${glbUrl}`;
+              if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: loadingMsg });
+              if (statusEl && !statusEl.setProperties) statusEl.textContent = loadingMsg;
+              vrLog(loadingMsg);
+              try {
+                await loadModelUrl(glbUrl);
+                const loadedMsg = `Model loaded: ${glbUrl}`;
+                if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: loadedMsg });
+                if (statusEl && !statusEl.setProperties) statusEl.textContent = loadedMsg;
+                vrLog(loadedMsg);
+              } catch (loadErr: any) {
+                const errMsg = `Failed to load GLB: ${loadErr?.message ?? String(loadErr)}`;
+                if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: errMsg });
+                if (statusEl && !statusEl.setProperties) statusEl.textContent = errMsg;
+                vrLog(errMsg);
+              }
+            }
           } catch (e) {
             bodyText = await res.text();
           }

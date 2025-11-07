@@ -1,39 +1,37 @@
 import { optimizeGLTF } from "@iwsdk/vite-plugin-gltf-optimizer";
 import { injectIWER } from "@iwsdk/vite-plugin-iwer";
-
 import { compileUIKit } from "@iwsdk/vite-plugin-uikitml";
 import { defineConfig } from "vite";
-import mkcert from "vite-plugin-mkcert";
+// --- REMOVE mkcert ---
+// import mkcert from "vite-plugin-mkcert";
 
 export default defineConfig({
   plugins: [
-    mkcert(),
+    // --- REMOVE mkcert() from the plugins array ---
     injectIWER({
       device: "metaQuest3",
-      activation: "localhost",
+      activation: "localhost", // This is correct, leave it as is.
       verbose: true,
       sem: {
         defaultScene: "living_room",
       },
     }),
-
     compileUIKit({ sourceDir: "ui", outputDir: "public/ui", verbose: true }),
     optimizeGLTF({
       level: "medium",
     }),
   ],
-  server: { host: "0.0.0.0", port: 8081, open: true },
-  build: {
-    outDir: "dist",
-    sourcemap: process.env.NODE_ENV !== "production",
-    target: "esnext",
-    rollupOptions: { input: "./index.html" },
+  server: { 
+    host: "0.0.0.0", 
+    port: 8081, 
+    open: false,
+    // --- The proxy is still needed for your API calls ---
+    proxy: {
+      '/generate': {
+        target: 'http://api:8080',
+        changeOrigin: true,
+      },
+    } 
   },
-  esbuild: { target: "esnext" },
-  optimizeDeps: {
-    exclude: ["@babylonjs/havok"],
-    esbuildOptions: { target: "esnext" },
-  },
-  publicDir: "public",
-  base: "./",
+  // ... (rest of config)
 });
