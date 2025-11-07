@@ -31,7 +31,6 @@ import { Robot } from "./robot.js";
 import { RobotSystem } from "./robot.js";
 
 
-const VITE_API_ENDPOINT = (import.meta as any).env?.VITE_API_ENDPOINT ?? '';
 const assets: AssetManifest = {
   chimeSound: {
     url: "/audio/chime.mp3",
@@ -74,6 +73,19 @@ export function vrLog(message: string) {
 }
 
 let appWorld: any = null;
+
+// Listen for model load events dispatched by UI panels (PanelSystem)
+window.addEventListener('load-model', async (e: any) => {
+  const url = e?.detail?.url as string | undefined;
+  if (!url) return;
+  try {
+    vrLog(`Loading model from panel event: ${url}`);
+    await loadModelUrl(url);
+    vrLog(`Model loaded: ${url}`);
+  } catch (err: any) {
+    vrLog(`Failed to load model from panel event: ${err?.message ?? String(err)}`);
+  }
+});
 
 // Simple overlay UI for pasting a GLTF URL and loading it into the scene
 function createLoadUi() {
@@ -240,11 +252,12 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     })
     .addComponent(Interactable)
     .addComponent(ScreenSpace, {
-      top: "20px",
-      left: "20px",
-      height: "40%",
+      top: "10vh",
+      left: "10vw",
+      height: "40vh",
+      width: "30vw"
     });
-  panelEntity.object3D!.position.set(0, 1.29, -1.9);
+  panelEntity.object3D!.position.set(-0.8, 1.29, -1.9);
 
   const userInputPanel = world
     .createTransformEntity()
@@ -255,145 +268,16 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     })
     .addComponent(Interactable)
     .addComponent(ScreenSpace, {
-      top: "20px",
-      left: "400px",
-      height: "40%",
+      top: "10vh",
+      left: "60vw",
+      height: "40vh",
+      width: "30vw"
     });
-  userInputPanel.object3D!.position.set(0, 3, -1.9);
+  userInputPanel.object3D!.position.set(0.8, 1.29, -1.9);
 
-  // Wire up the Generate button using the PanelDocument (UIKit) so element
-  // lookups work even if PanelUI renders into an internal document.
-  try {
-    const doc = PanelDocument.data.document[userInputPanel.index] as UIKitDocument | undefined;
-    if (!doc) {
-      // If the document isn't ready yet, subscribe to qualify events in PanelSystem
-      // or poll for a short time. We'll poll briefly here.
-      let attempts = 0;
-      const poll = setInterval(() => {
-        const d = PanelDocument.data.document[userInputPanel.index] as UIKitDocument | undefined;
-        attempts += 1;
-        if (d) {
-          clearInterval(poll);
-          wirePanelDocument(d);
-        } else if (attempts > 10) {
-          clearInterval(poll);
-          vrLog('Panel document for user input not available');
-        }
-      }, 200);
-    } else {
-      wirePanelDocument(doc);
-    }
-  } catch (e: any) {
-    vrLog(`Error initializing panel wiring: ${e?.message ?? String(e)}`);
-  }
-
-  function wirePanelDocument(document: UIKitDocument) {
-    try {
-      // UIKit elements expose a getElementById API similar to DOM
-      const promptEl = document.getElementById('prompt') as any;
-      const generateEl = document.getElementById('generate') as any;
-      const statusEl = document.getElementById('status') as any;
-
-      if (!generateEl) {
-        vrLog('Generate element not found in panel document');
-        return;
-      }
-
-      generateEl.addEventListener('click', async () => {
-        // For input elements in UIKit, value may be exposed as .value or via getProperties().
-        // Debug the available shape so we can adapt if necessary.
-        try {
-          vrLog(`promptEl shape: keys=${Object.keys(promptEl || {}).join(',')}`);
-        } catch (_) {}
-
-        // Simplified prompt extraction: prefer inputProperties.value (UIKit),
-        // then fall back to the element's value property.
-        let prompt = '';
-        try {
-          if (promptEl) {
-            // prefer the structured inputProperties value if available
-            prompt = (promptEl.inputProperties && typeof promptEl.inputProperties.value === 'string')
-              ? promptEl.inputProperties.value
-              : (typeof promptEl.value === 'string' ? promptEl.value : '');
-
-            if (prompt) vrLog(`prompt read from ${promptEl.inputProperties && promptEl.inputProperties.value ? 'promptEl.inputProperties.value' : 'promptEl.value'}`);
-          }
-        } catch (err: any) {
-          vrLog(`Error reading prompt element: ${err?.message ?? String(err)}`);
-        }
-
-        if (!prompt) {
-          if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Please enter a prompt.' });
-          if (statusEl && !statusEl.setProperties) statusEl.textContent = 'Please enter a prompt.';
-          vrLog('Generate: empty prompt');
-          return;
-        }
-
-        if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Sending request...' });
-        if (statusEl && !statusEl.setProperties) statusEl.textContent = 'Sending request...';
-        vrLog(`Generate: sending prompt: ${prompt}`);
-        console.log(`VITE_API_ENDPOINT: ${VITE_API_ENDPOINT}`);
-        try {
-          const apiUrl = VITE_API_ENDPOINT ? `${VITE_API_ENDPOINT.replace(/\/$/, '')}/generate` : '/generate';
-          const res = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, quality: 'fast' }),
-          });
-
-          if (!res.ok) {
-            const text = await res.text();
-            const msg = `Generate failed: ${res.status} ${res.statusText} - ${text}`;
-            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: msg });
-            if (statusEl && !statusEl.setProperties) statusEl.textContent = msg;
-            vrLog(msg);
-            return;
-          }
-
-          let bodyText = '';
-          try {
-            const data = await res.json();
-            bodyText = JSON.stringify(data);
-
-            // If the backend returned a glb_url, automatically load it into the world
-            if (data && data.glb_url) {
-              const glbUrl = data.glb_url as string;
-              const loadingMsg = `Generate success, loading GLB: ${glbUrl}`;
-              if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: loadingMsg });
-              if (statusEl && !statusEl.setProperties) statusEl.textContent = loadingMsg;
-              vrLog(loadingMsg);
-              try {
-                await loadModelUrl(glbUrl);
-                const loadedMsg = `Model loaded: ${glbUrl}`;
-                if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: loadedMsg });
-                if (statusEl && !statusEl.setProperties) statusEl.textContent = loadedMsg;
-                vrLog(loadedMsg);
-              } catch (loadErr: any) {
-                const errMsg = `Failed to load GLB: ${loadErr?.message ?? String(loadErr)}`;
-                if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: errMsg });
-                if (statusEl && !statusEl.setProperties) statusEl.textContent = errMsg;
-                vrLog(errMsg);
-              }
-            }
-          } catch (e) {
-            bodyText = await res.text();
-          }
-
-          const successMsg = `Generate success: ${bodyText}`;
-          if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: successMsg });
-          if (statusEl && !statusEl.setProperties) statusEl.textContent = successMsg;
-          vrLog(successMsg);
-        } catch (err: any) {
-          const msg = `Generate error: ${err?.message ?? String(err)}`;
-          if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: msg });
-          if (statusEl && !statusEl.setProperties) statusEl.textContent = msg;
-          vrLog(msg);
-        }
-      });
-    } catch (e: any) {
-      vrLog(`Error wiring panel document: ${e?.message ?? String(e)}`);
-    }
-  }
+  // Panel wiring (prompt/generate/status) is handled by `PanelSystem` in
+  // `vr-app/src/panel.ts` via the `userInputPanel.subscribe('qualify', ...)`
+  // handler. No local polling is required here.
 
   // const webxrLogoTexture = AssetManager.getTexture("webxr")!;
   // webxrLogoTexture.colorSpace = SRGBColorSpace;
@@ -409,20 +293,6 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   // logoBanner.rotateY(Math.PI);
 
   world.registerSystem(PanelSystem).registerSystem(RobotSystem);
-
-  // Create Duck model from manifest (loaded via AssetManager).
-  // AssetManager may not have finished loading the duck yet, so poll for it
-  // with a short timeout.
-  async function waitForGLTF(key: string, timeoutMs = 5000, intervalMs = 200) {
-    const start = performance.now();
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const res = AssetManager.getGLTF(key);
-      if (res) return res;
-      if (performance.now() - start > timeoutMs) return null;
-      await new Promise((r) => setTimeout(r, intervalMs));
-    }
-  }
 
 
 });

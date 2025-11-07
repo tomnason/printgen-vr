@@ -20,18 +20,22 @@ export default defineConfig(({ mode }) => {
     envDir: '..',
     plugins: [
       mkcert(),
-    injectIWER({
-      device: "metaQuest3",
-      activation: "localhost", // This is correct, leave it as is.
-      verbose: true,
-      sem: {
-        defaultScene: "living_room",
-      },
-    }),
-    compileUIKit({ sourceDir: "ui", outputDir: "public/ui", verbose: true }),
-    optimizeGLTF({
-      level: "medium",
-    }),
+      injectIWER({
+        device: "metaQuest3",
+        activation: "localhost", // This is correct, leave it as is.
+        verbose: true,
+        sem: {
+          defaultScene: "living_room",
+        },
+      }),
+      compileUIKit({ 
+        sourceDir: "ui", 
+        outputDir: "public/ui", 
+        verbose: true 
+      }),
+      optimizeGLTF({
+        level: "medium",
+      }),
   ],
     server: {
       host: "0.0.0.0",
