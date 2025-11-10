@@ -44,6 +44,6 @@
   <span class="heading">Printgen-VR</span>
 
   <span class="sub-heading">Generate 3D objects with your voice, then see them in your space.</span>
-  <button id="xr-button">Enter XR</button>
+  <button id="xr-button">Enter AR</button>
   
 </div>

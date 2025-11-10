@@ -31,7 +31,7 @@
         "type": "container",
         "sourceTag": "button",
         "children": [
-          "Enter XR"
+          "Enter AR"
         ],
         "properties": {
           "id": "xr-button"

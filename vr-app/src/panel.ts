@@ -37,7 +37,7 @@ export class PanelSystem extends createSystem({
       });
       this.world.visibilityState.subscribe((visibilityState) => {
         if (visibilityState === VisibilityState.NonImmersive) {
-          xrButton.setProperties({ text: "Enter XR" });
+          xrButton.setProperties({ text: "Enter AR" });
         } else {
           xrButton.setProperties({ text: "Exit to Browser" });
         }
@@ -199,7 +199,7 @@ export class PanelSystem extends createSystem({
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
               },
-              body: JSON.stringify({ prompt, quality: 'high' }), // You can change quality here
+              body: JSON.stringify({ prompt, quality: 'medium' }), // You can change quality here
             });
 
             if (!res.ok) {

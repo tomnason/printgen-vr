@@ -28,12 +28,13 @@ import { PanelSystem } from "./panel.js";
 
 import { Robot } from "./robot.js";
 
-import { RobotSystem } from "./robot.js";
+// import { RobotSystem } from "./robot.js";
 
 import { vrLog } from './vrlog';
 
 vrLog('VR App starting up...');
-vrLog('The first model generated may take a few minutes while the service warms up');
+vrLog('v0.1.3');
+vrLog('The first model generated may take a few minutes while the cloud GPU model service warms up');
 
 
 const assets: AssetManifest = {
@@ -48,21 +49,21 @@ const assets: AssetManifest = {
     priority: "critical",
   },
 
-  plantSansevieria: {
-    url: "/gltf/plantSansevieria/plantSansevieria.gltf",
-    type: AssetType.GLTF,
-    priority: "critical",
-  },
-  robot: {
-    url: "/gltf/robot/robot.gltf",
-    type: AssetType.GLTF,
-    priority: "critical",
-  },
-  duck: {
-    url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF/Duck.gltf",
-    type: AssetType.GLTF,
-    priority: "background",
-  },
+  // plantSansevieria: {
+  //   url: "/gltf/plantSansevieria/plantSansevieria.gltf",
+  //   type: AssetType.GLTF,
+  //   priority: "critical",
+  // },
+  // robot: {
+  //   url: "/gltf/robot/robot.gltf",
+  //   type: AssetType.GLTF,
+  //   priority: "critical",
+  // },
+  // duck: {
+  //   url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF/Duck.gltf",
+  //   type: AssetType.GLTF,
+  //   priority: "background",
+  // },
 };
 
 
@@ -175,7 +176,7 @@ async function loadModelUrl(url: string) {
   }
 }
 
-createLoadUi();
+// createLoadUi();
 
 World.create(document.getElementById("scene-container") as HTMLDivElement, {
   assets,
@@ -205,22 +206,22 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
 
   camera.position.set(0, 1, 0.5);
 
-  const { scene: plantMesh } = AssetManager.getGLTF("plantSansevieria")!;
+  // const { scene: plantMesh } = AssetManager.getGLTF("plantSansevieria")!;
 
-  plantMesh.position.set(1.2, 0.2, -1.8);
-  plantMesh.scale.setScalar(2);
+  // plantMesh.position.set(1.2, 0.2, -1.8);
+  // plantMesh.scale.setScalar(2);
 
-  world
-    .createTransformEntity(plantMesh)
-    .addComponent(Interactable)
-    .addComponent(DistanceGrabbable, {
-      movementMode: MovementMode.MoveFromTarget,
-    });
+  // world
+  //   .createTransformEntity(plantMesh)
+  //   .addComponent(Interactable)
+  //   .addComponent(DistanceGrabbable, {
+  //     movementMode: MovementMode.MoveFromTarget,
+  //   });
 
-  const { scene: robotMesh } = AssetManager.getGLTF("robot")!;
-  // defaults for AR
-  robotMesh.position.set(-1.2, 0.4, -1.8);
-  robotMesh.scale.setScalar(1);
+  // const { scene: robotMesh } = AssetManager.getGLTF("robot")!;
+  // // defaults for AR
+  // robotMesh.position.set(-1.2, 0.4, -1.8);
+  // robotMesh.scale.setScalar(1);
   
   const levelRoot = world.activeLevel.value;
 
@@ -229,15 +230,15 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     intensity: 0.8, // Slightly brighter than default
   });
 
-  world
-    .createTransformEntity(robotMesh)
-    .addComponent(Interactable)
-    .addComponent(Robot)
-    .addComponent(AudioSource, {
-      src: "/audio/chime.mp3",
-      maxInstances: 3,
-      playbackMode: PlaybackMode.FadeRestart,
-    });
+  // world
+  //   .createTransformEntity(robotMesh)
+  //   .addComponent(Interactable)
+  //   .addComponent(Robot)
+  //   .addComponent(AudioSource, {
+  //     src: "/audio/chime.mp3",
+  //     maxInstances: 3,
+  //     playbackMode: PlaybackMode.FadeRestart,
+  //   });
 
   const panelEntity = world
     .createTransformEntity()
@@ -288,6 +289,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   // logoBanner.position.set(0, 1, 1.8);
   // logoBanner.rotateY(Math.PI);
 
-  world.registerSystem(PanelSystem).registerSystem(RobotSystem);
+  world.registerSystem(PanelSystem);
+  // world.registerSystem(RobotSystem);
 
 });
