@@ -21,6 +21,7 @@ export class PanelSystem extends createSystem({
 }) {
   init() {
     this.queries.welcomePanel.subscribe("qualify", (entity) => {
+      // This welcome panel logic does not need to change.
       const document = PanelDocument.data.document[
         entity.index
       ] as UIKitDocument;
@@ -43,8 +44,7 @@ export class PanelSystem extends createSystem({
       });
     });
 
-    // Initialize the user input panel when it appears so other code can
-    // reliably find elements like 'prompt', 'generate', and 'status'.
+    // This is the main logic block for the user input panel.
     this.queries.userInputPanel.subscribe("qualify", (entity) => {
       const document = PanelDocument.data.document[entity.index] as UIKitDocument;
       if (!document) return;
@@ -54,174 +54,178 @@ export class PanelSystem extends createSystem({
       const statusEl = document.getElementById('status') as any;
       const recordEl = document.getElementById('record') as any;
 
+      // --- Helpers ---
+      let accessToken: string | null = null;
+      let tokenExpiry = 0; // epoch ms
+
+      const setStatus = (text: string) => {
+        try {
+          if (statusEl && statusEl.setProperties) statusEl.setProperties({ text });
+          else if (statusEl) (statusEl as any).textContent = text;
+        } catch (_) {}
+      };
+
+      const readPrompt = (): string => {
+        return (promptEl?.inputProperties?.value ?? promptEl?.value ?? '') as string;
+      };
+
+      async function getAuthToken(): Promise<string> {
+        // Return cached token if valid for at least 60s
+        const now = Date.now();
+        if (accessToken && now < tokenExpiry - 60000) return accessToken;
+
+        const authApiUrl = ((import.meta as any).env)?.VITE_AUTH_API_URL ?? '';
+        const response = await fetch(`${authApiUrl}/get-token`);
+        if (!response.ok) throw new Error('Could not get auth token.');
+        const data = await response.json();
+        accessToken = data.access_token;
+        // Assume expires_in is seconds from now; convert to ms epoch
+        tokenExpiry = Date.now() + ((data.expires_in ?? 0) * 1000);
+        return accessToken!;
+      }
+
       if (recordEl && !recordEl.__hasInitClick_record) {
-        const handleClick = async () => {
-          vrLog('Record button clicked — checking SpeechRecognition support');
-          const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-          if (!SpeechRecognition) {
-            vrLog('SpeechRecognition API not supported in this browser');
-            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Speech recognition not supported.' });
-            return;
-          }
+        let mediaRecorder: MediaRecorder | null = null;
+        let audioChunks: Blob[] = [];
 
-          // Request microphone permission first — on some VR browsers this is required
+        const transcribeAudio = async (audioBlob: Blob) => {
+          vrLog('Transcribing audio blob via Google Cloud Speech API...');
+          setStatus('Transcribing...');
           try {
-            vrLog('Requesting microphone permission via getUserMedia');
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-              throw new Error('getUserMedia not available');
+            const token = await getAuthToken();
+            const base64Audio = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                try {
+                  resolve((reader.result as string).split(',')[1]);
+                } catch (e) { reject(e); }
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(audioBlob);
+            });
+
+            const speechApiUrl = 'https://speech.googleapis.com/v1/speech:recognize';
+            const response = await fetch(speechApiUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                config: { encoding: 'WEBM_OPUS', sampleRateHertz: 48000, languageCode: 'en-US' },
+                audio: { content: base64Audio },
+              }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data?.error?.message || 'Speech API request failed.');
+
+            if (data.results?.length) {
+              const transcript = data.results[0].alternatives[0].transcript;
+              vrLog(`Final Transcript: ${transcript}`);
+              if (promptEl?.setProperties) promptEl.setProperties({ value: transcript });
+              setStatus('Ready.');
+            } else {
+              vrLog('No transcript returned from Speech API.');
+              setStatus('Could not understand audio.');
             }
-            // ask for audio permission; we don't keep the stream here
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            // immediately stop tracks to avoid keeping mic open
-            try { stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
-            vrLog('Microphone permission granted');
           } catch (err: any) {
-            vrLog(`Microphone permission denied/unavailable: ${err?.message ?? String(err)}`);
-            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Microphone permission denied or unavailable.' });
-            return;
+            vrLog(`Transcription failed: ${err?.message ?? String(err)}`);
+            setStatus(`Transcription Error: ${err?.message ?? String(err)}`);
           }
-
-          const recognition = new SpeechRecognition();
-          recognition.lang = 'en-US';
-          recognition.interimResults = false;
-          recognition.maxAlternatives = 1;
-          // keep default continuous=false to get single result, adjust if you need streaming
-          recognition.continuous = false;
-
-          vrLog('Starting speech recognition');
-          if (recordEl && recordEl.setProperties) recordEl.setProperties({ text: 'Recording...' });
-          try { recognition.start(); } catch (err) { vrLog('recognition.start() threw: ' + String(err)); }
-
-          // Safety timeout in case onend/onresult don't fire. Extend to 15s for debugging on VR browsers
-          const stopTimeout = setTimeout(() => {
-            vrLog('Recording timeout reached — stopping recognition');
-            try { recognition.stop(); } catch (_) {}
-          }, 15000);
-
-          // Extra debug handlers to surface what's happening on devices like Meta Quest
-          recognition.onstart = () => vrLog('Recognition onstart');
-          recognition.onaudiostart = () => vrLog('Recognition onaudiostart');
-          recognition.onsoundstart = () => vrLog('Recognition onsoundstart');
-          recognition.onaudioend = () => vrLog('Recognition onaudioend');
-          recognition.onsoundend = () => vrLog('Recognition onsoundend');
-          recognition.onnomatch = (e: any) => vrLog('Recognition onnomatch: ' + JSON.stringify(e));
-
-          recognition.onresult = (event: any) => {
-            try {
-              const speechResult = event.results[0][0].transcript;
-              vrLog(`Speech recognition result: ${speechResult}`);
-              if (promptEl && promptEl.setProperties) {
-                promptEl.setProperties({ value: speechResult });
-              }
-            } catch (err) {
-              vrLog('Error processing onresult: ' + String(err));
-            }
-          };
-
-          recognition.onspeechend = () => {
-            vrLog('Speech ended — stopping recognition');
-            try { recognition.stop(); } catch (_) {}
-          };
-
-          recognition.onend = () => {
-            clearTimeout(stopTimeout);
-            vrLog('Recognition ended');
-            if (recordEl && recordEl.setProperties) recordEl.setProperties({ text: 'Record voice' });
-          };
-
-          recognition.onerror = (event: any) => {
-            try {
-              vrLog(`Recognition error: ${event?.error ?? String(event)}`);
-              if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Error during recording: ' + (event?.error ?? String(event)) });
-            } catch (_) {}
-            if (recordEl && recordEl.setProperties) recordEl.setProperties({ text: 'Record voice' });
-          };
         };
 
-        try {
-          recordEl.addEventListener?.('click', handleClick);
-        } catch (_) {
-          // ignore
-        }
+        const handleClick = async () => {
+          vrLog('Record button clicked — using MediaRecorder');
+          if (!navigator.mediaDevices?.getUserMedia) {
+            vrLog('MediaRecorder API not supported.');
+            setStatus('Audio recording not supported.');
+            return;
+          }
+
+          try {
+            audioChunks = [];
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+            mediaRecorder.ondataavailable = (event) => audioChunks.push(event.data);
+            mediaRecorder.onstop = () => {
+              const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+              transcribeAudio(audioBlob);
+              try { stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+            };
+
+            mediaRecorder.start();
+            if (recordEl?.setProperties) recordEl.setProperties({ text: 'Recording...' });
+            setStatus('Listening...');
+
+            // Stop after 5s
+            setTimeout(() => {
+              if (mediaRecorder?.state === 'recording') {
+                mediaRecorder.stop();
+                if (recordEl?.setProperties) recordEl.setProperties({ text: 'Record voice' });
+              }
+            }, 5000);
+          } catch (err: any) {
+            vrLog(`Error starting recording: ${err?.message ?? String(err)}`);
+            setStatus(`Mic Error: ${err?.message ?? String(err)}`);
+          }
+        };
+
+        try { recordEl.addEventListener?.('click', handleClick); } catch (_) {}
         recordEl.__hasInitClick_record = true;
       }
 
-
-      // Wire up the generate button to call the API and dispatch a load-model event
       if (generateEl && !generateEl.__hasInitClick) {
         const handleClick = async () => {
           try {
-            // Read prompt preferring inputProperties
-            const prompt = (promptEl && promptEl.inputProperties && typeof promptEl.inputProperties.value === 'string')
-              ? promptEl.inputProperties.value
-              : (promptEl && typeof promptEl.value === 'string' ? promptEl.value : '');
-
+            const prompt = (promptEl?.inputProperties?.value ?? promptEl?.value ?? '') as string;
             if (!prompt) {
-              if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Please enter a prompt.' });
-              if (statusEl && !statusEl.setProperties) statusEl.textContent = 'Please enter a prompt.';
+              if (statusEl?.setProperties) statusEl.setProperties({ text: 'Please enter a prompt.' });
               return;
             }
 
-            // Show sending state
-            if (generateEl && generateEl.setProperties) generateEl.setProperties({ enabled: false });
-            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Sending request...' });
-            if (statusEl && !statusEl.setProperties) statusEl.textContent = 'Sending request...';
+            if (generateEl?.setProperties) generateEl.setProperties({ enabled: false });
+            if (statusEl?.setProperties) statusEl.setProperties({ text: 'Generating your model...' });
 
-            // Determine API URL
-            const VITE_API_ENDPOINT = ((import.meta as any).env)?.VITE_API_ENDPOINT ?? '';
-            const apiUrl = VITE_API_ENDPOINT ? `${VITE_API_ENDPOINT.replace(/\/$/, '')}/generate` : '/generate';
+            const token = await getAuthToken();
+            
+            const generateApiUrl = ((import.meta as any).env)?.VITE_API_ENDPOINT ?? '';
+            if (!generateApiUrl) throw new Error("VITE_API_ENDPOINT is not set.");
+            const apiUrl = `${generateApiUrl.replace(/\/$/, '')}/generate`;
 
             const res = await fetch(apiUrl, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ prompt, quality: 'fast' }),
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ prompt, quality: 'high' }), // You can change quality here
             });
 
             if (!res.ok) {
               const text = await res.text();
-              const msg = `Generate failed: ${res.status} ${res.statusText} - ${text}`;
-              if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: msg });
-              if (statusEl && !statusEl.setProperties) statusEl.textContent = msg;
-              console.warn(msg);
-              return;
+              throw new Error(`Generate failed: ${res.status} ${res.statusText} - ${text}`);
             }
 
-            const data = await res.json().catch(async () => await res.text());
-            const bodyText = typeof data === 'string' ? data : JSON.stringify(data);
-
-            // If glb_url returned, dispatch event for app to load it
-            if (data && (data as any).glb_url) {
-              const glbUrl = (data as any).glb_url as string;
-              // Dispatch a global event that index.ts listens for to load the model
-              window.dispatchEvent(new CustomEvent('load-model', { detail: { url: glbUrl } }));
-              const successMsg = `Generate success, loading GLB`;
-              if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: successMsg });
-              if (statusEl && !statusEl.setProperties) statusEl.textContent = successMsg;
-              console.log(successMsg);
+            const data = await res.json();
+            if (data?.glb_url) {
+              window.dispatchEvent(new CustomEvent('load-model', { detail: { url: data.glb_url } }));
+              if (statusEl?.setProperties) statusEl.setProperties({ text: 'Generate success, loading GLB...' });
             } else {
-              const successMsg = `Generate success: ${bodyText}`;
-              if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: successMsg });
-              if (statusEl && !statusEl.setProperties) statusEl.textContent = successMsg;
-              console.log(successMsg);
+              if (statusEl?.setProperties) statusEl.setProperties({ text: `Generate success: ${JSON.stringify(data)}` });
             }
           } catch (err: any) {
             const msg = `Generate error: ${err?.message ?? String(err)}`;
-            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: msg });
-            if (statusEl && !statusEl.setProperties) statusEl.textContent = msg;
-            console.error(msg);
+            if (statusEl?.setProperties) statusEl.setProperties({ text: msg });
+            vrLog(msg);
           } finally {
-            if (generateEl && generateEl.setProperties) generateEl.setProperties({ enabled: true });
+            if (generateEl?.setProperties) generateEl.setProperties({ enabled: true });
           }
         };
 
-        try {
-          generateEl.addEventListener?.('click', handleClick);
-        } catch (_) {
-          // ignore
-        }
+        try { generateEl.addEventListener?.('click', handleClick); } catch (_) {}
         generateEl.__hasInitClick = true;
       }
-
     });
   }
 }
