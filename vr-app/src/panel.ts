@@ -55,7 +55,7 @@ export class PanelSystem extends createSystem({
       const recordEl = document.getElementById('record') as any;
 
       if (recordEl && !recordEl.__hasInitClick_record) {
-        const handleClick = () => {
+        const handleClick = async () => {
           vrLog('Record button clicked — checking SpeechRecognition support');
           const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
           if (!SpeechRecognition) {
@@ -64,26 +64,57 @@ export class PanelSystem extends createSystem({
             return;
           }
 
+          // Request microphone permission first — on some VR browsers this is required
+          try {
+            vrLog('Requesting microphone permission via getUserMedia');
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+              throw new Error('getUserMedia not available');
+            }
+            // ask for audio permission; we don't keep the stream here
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // immediately stop tracks to avoid keeping mic open
+            try { stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+            vrLog('Microphone permission granted');
+          } catch (err: any) {
+            vrLog(`Microphone permission denied/unavailable: ${err?.message ?? String(err)}`);
+            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Microphone permission denied or unavailable.' });
+            return;
+          }
+
           const recognition = new SpeechRecognition();
           recognition.lang = 'en-US';
           recognition.interimResults = false;
           recognition.maxAlternatives = 1;
+          // keep default continuous=false to get single result, adjust if you need streaming
+          recognition.continuous = false;
 
           vrLog('Starting speech recognition');
           if (recordEl && recordEl.setProperties) recordEl.setProperties({ text: 'Recording...' });
-          recognition.start();
+          try { recognition.start(); } catch (err) { vrLog('recognition.start() threw: ' + String(err)); }
 
-          // Safety timeout in case onend/onresult don't fire
+          // Safety timeout in case onend/onresult don't fire. Extend to 15s for debugging on VR browsers
           const stopTimeout = setTimeout(() => {
             vrLog('Recording timeout reached — stopping recognition');
             try { recognition.stop(); } catch (_) {}
-          }, 5000);
+          }, 15000);
+
+          // Extra debug handlers to surface what's happening on devices like Meta Quest
+          recognition.onstart = () => vrLog('Recognition onstart');
+          recognition.onaudiostart = () => vrLog('Recognition onaudiostart');
+          recognition.onsoundstart = () => vrLog('Recognition onsoundstart');
+          recognition.onaudioend = () => vrLog('Recognition onaudioend');
+          recognition.onsoundend = () => vrLog('Recognition onsoundend');
+          recognition.onnomatch = (e: any) => vrLog('Recognition onnomatch: ' + JSON.stringify(e));
 
           recognition.onresult = (event: any) => {
-            const speechResult = event.results[0][0].transcript;
-            vrLog(`Speech recognition result: ${speechResult}`);
-            if (promptEl && promptEl.setProperties) {
-              promptEl.setProperties({ value: speechResult });
+            try {
+              const speechResult = event.results[0][0].transcript;
+              vrLog(`Speech recognition result: ${speechResult}`);
+              if (promptEl && promptEl.setProperties) {
+                promptEl.setProperties({ value: speechResult });
+              }
+            } catch (err) {
+              vrLog('Error processing onresult: ' + String(err));
             }
           };
 
@@ -99,8 +130,10 @@ export class PanelSystem extends createSystem({
           };
 
           recognition.onerror = (event: any) => {
-            vrLog(`Recognition error: ${event?.error ?? String(event)}`);
-            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Error during recording: ' + event.error });
+            try {
+              vrLog(`Recognition error: ${event?.error ?? String(event)}`);
+              if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Error during recording: ' + (event?.error ?? String(event)) });
+            } catch (_) {}
             if (recordEl && recordEl.setProperties) recordEl.setProperties({ text: 'Record voice' });
           };
         };
