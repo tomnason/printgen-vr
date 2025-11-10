@@ -7,6 +7,7 @@ import {
   UIKitDocument,
   UIKit,
 } from "@iwsdk/core";
+import { vrLog } from './vrlog';
 
 export class PanelSystem extends createSystem({
   welcomePanel: {
@@ -51,6 +52,67 @@ export class PanelSystem extends createSystem({
       const promptEl = document.getElementById('prompt') as any;
       const generateEl = document.getElementById('generate') as any;
       const statusEl = document.getElementById('status') as any;
+      const recordEl = document.getElementById('record') as any;
+
+      if (recordEl && !recordEl.__hasInitClick_record) {
+        const handleClick = () => {
+          vrLog('Record button clicked — checking SpeechRecognition support');
+          const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+          if (!SpeechRecognition) {
+            vrLog('SpeechRecognition API not supported in this browser');
+            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Speech recognition not supported.' });
+            return;
+          }
+
+          const recognition = new SpeechRecognition();
+          recognition.lang = 'en-US';
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
+
+          vrLog('Starting speech recognition');
+          if (recordEl && recordEl.setProperties) recordEl.setProperties({ text: 'Recording...' });
+          recognition.start();
+
+          // Safety timeout in case onend/onresult don't fire
+          const stopTimeout = setTimeout(() => {
+            vrLog('Recording timeout reached — stopping recognition');
+            try { recognition.stop(); } catch (_) {}
+          }, 5000);
+
+          recognition.onresult = (event: any) => {
+            const speechResult = event.results[0][0].transcript;
+            vrLog(`Speech recognition result: ${speechResult}`);
+            if (promptEl && promptEl.setProperties) {
+              promptEl.setProperties({ value: speechResult });
+            }
+          };
+
+          recognition.onspeechend = () => {
+            vrLog('Speech ended — stopping recognition');
+            try { recognition.stop(); } catch (_) {}
+          };
+
+          recognition.onend = () => {
+            clearTimeout(stopTimeout);
+            vrLog('Recognition ended');
+            if (recordEl && recordEl.setProperties) recordEl.setProperties({ text: 'Record voice' });
+          };
+
+          recognition.onerror = (event: any) => {
+            vrLog(`Recognition error: ${event?.error ?? String(event)}`);
+            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Error during recording: ' + event.error });
+            if (recordEl && recordEl.setProperties) recordEl.setProperties({ text: 'Record voice' });
+          };
+        };
+
+        try {
+          recordEl.addEventListener?.('click', handleClick);
+        } catch (_) {
+          // ignore
+        }
+        recordEl.__hasInitClick_record = true;
+      }
+
 
       // Wire up the generate button to call the API and dispatch a load-model event
       if (generateEl && !generateEl.__hasInitClick) {

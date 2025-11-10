@@ -1,16 +1,16 @@
 import {
   AssetManifest,
   AssetType,
-  Mesh,
-  MeshBasicMaterial,
-  PlaneGeometry,
+  // Mesh,
+  // MeshBasicMaterial,
+  // PlaneGeometry,
   SessionMode,
-  SRGBColorSpace,
+  // SRGBColorSpace,
   AssetManager,
   World,
   IBLTexture,
 } from "@iwsdk/core";
-import { PanelDocument, UIKitDocument } from "@iwsdk/core";
+// import { PanelDocument, UIKitDocument } from "@iwsdk/core";
 
 import {
   AudioSource,
@@ -22,13 +22,18 @@ import {
   ScreenSpace,
 } from "@iwsdk/core";
 
-import { EnvironmentType, LocomotionEnvironment } from "@iwsdk/core";
+// import { EnvironmentType, LocomotionEnvironment } from "@iwsdk/core";
 
 import { PanelSystem } from "./panel.js";
 
 import { Robot } from "./robot.js";
 
 import { RobotSystem } from "./robot.js";
+
+import { vrLog } from './vrlog';
+
+vrLog('VR App starting up...');
+vrLog('The first model generated may take a few minutes while the service warms up');
 
 
 const assets: AssetManifest = {
@@ -61,16 +66,7 @@ const assets: AssetManifest = {
 };
 
 
-// Utility function to log messages to VR overlay
-export function vrLog(message: string) {
-  const logDiv = document.getElementById('vrConsole');
-  if (!logDiv) return;
-  const entry = document.createElement('div');
-  entry.textContent = message;
-  logDiv.appendChild(entry);
-  logDiv.scrollTop = logDiv.scrollHeight;
-  console.log(message);
-}
+
 
 let appWorld: any = null;
 
@@ -293,6 +289,5 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   // logoBanner.rotateY(Math.PI);
 
   world.registerSystem(PanelSystem).registerSystem(RobotSystem);
-
 
 });
