@@ -33,7 +33,7 @@ import { Robot } from "./robot.js";
 import { vrLog } from './vrlog';
 
 vrLog('VR App starting up...');
-vrLog('v0.1.3');
+vrLog('v0.1.4');
 vrLog('The first model generated may take a few minutes while the cloud GPU model service warms up');
 
 
@@ -151,12 +151,20 @@ async function loadModelUrl(url: string) {
         (gltf: any) => {
           try {
             const mesh = gltf.scene;
+            // Position/scale the loaded scene/mesh
             mesh.position.set(0, 0, -2);
             mesh.scale.setScalar(1);
-            appWorld
-              .createTransformEntity(mesh)
-              .addComponent(Interactable)
-              .addComponent(DistanceGrabbable, { movementMode: MovementMode.MoveFromTarget });
+
+            // Create a transform entity (SDK wrapper) and attach the raw THREE object as a child.
+            // The grabbing/interaction systems expect the entity.object3D to be the SDK SceneNode
+            // type (St). If we pass the raw GLTF root directly into createTransformEntity, it
+            // may not be the correct instance and the grabbable initialization can be skipped
+            // for the first dynamically-loaded model. Creating an empty transform entity and
+            // adding the GLTF scene as a child ensures pointer/grab initialization runs.
+            const ent = appWorld.createTransformEntity();
+            // ent.object3D is the SDK scene node; add the loaded mesh under it.
+            ent.object3D!.add(mesh);
+            ent.addComponent(Interactable).addComponent(DistanceGrabbable, { movementMode: MovementMode.MoveFromTarget });
             vrLog('Model loaded via GLTFLoader');
             resolve();
           } catch (e) {
