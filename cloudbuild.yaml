@@ -1,0 +1,11 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  dir: 'cloudrun-services'
+  args: [
+    'build',
+    '--tag', 'europe-west1-docker.pkg.dev/printgen-vr/cloudrun-hackathon-images/shap-e-api:latest',
+    '--file', 'Dockerfile',
+    '.'
+  ]
+images:
+- 'europe-west1-docker.pkg.dev/printgen-vr/cloudrun-hackathon-images/shap-e-api:latest'

@@ -41,9 +41,9 @@
   }
 </style>
 <div class="panel-container">
-  <span class="heading">Generate your 3d object</span>
+  <span class="heading">Printgen-VR</span>
 
-  <span class="sub-heading"> Explore locomotion, grab interactions, spatial UI panel and more - start building for the immersive web with Immersive Web SDK today.</span>
-  <button id="xr-button">Enter XR</button>
+  <span class="sub-heading">Generate 3D objects with your voice, then see them in your space.</span>
+  <button id="xr-button">Enter AR</button>
   
 </div>

@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Service 1: The Python Backend API
+  api:
+    build:
+      context: ./cloudrun-services
+      dockerfile: Dockerfile
+    image: shap-e-api-local
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./cloudrun-services:/app
+      - "${GCLOUD_CONFIG_PATH}:/root/.config/gcloud"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Service 2: The Vite Frontend App
+  frontend:
+    build:
+      context: ./vr-app
+      dockerfile: Dockerfile.frontend
+    image: vr-app-frontend
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      # Ensure file-change polling works inside Docker on Windows
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=100
+    volumes:
+      - ./vr-app:/app
+      # Keep node_modules in a container volume so host bind doesn't override it
+      - frontend_node_modules:/app/node_modules
+
+  # Service 3: The Caddy Reverse Proxy
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8443:8443"
+      - "8080:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+
+volumes:
+  caddy_data:
+  frontend_node_modules:

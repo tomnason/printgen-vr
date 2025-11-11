@@ -13,4 +13,7 @@ This command executes the instructions in your `Dockerfile`, downloading the bas
 Execute this command in your terminal:
 
 ```bash
-docker run --rm -p 8080:8080 --gpus all --env-file .env -v ${env:APPDATA}\gcloud:/root/.config/gcloud  shap-e-api-local
+docker run --rm -p 8080:8080 --gpus all --env-file .env -v ${env:APPDATA}\gcloud:/root/.config/gcloud  /cloudrun-services shap-e-api-local
+```
+
+

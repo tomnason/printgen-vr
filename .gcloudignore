@@ -1,0 +1,33 @@
+# This file prevents large or unnecessary files from being uploaded to Cloud Build.
+
+# Git / IDE files
+.git
+.gitignore
+.vscode/
+.idea/
+
+# Ignore the local Shap-E model cache directory
+shap_e_model_cache/
+
+# Node.js dependencies - VERY IMPORTANT
+node_modules/
+/vr-app/
+/vr-app/node_modules/
+/vr-app/dist/
+
+# Python cache and environment
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+
+# Local environment and credential files that shouldn't be in the build context
+.env
+# Note: We explicitly COPY gcp-credentials.json in the Dockerfile,
+# so we do NOT ignore it here. If you were using Secret Manager, you would ignore it.
+
+# Docker files that are not part of the build source
+docker-compose.yml
+Caddyfile
+Dockerfile.frontend

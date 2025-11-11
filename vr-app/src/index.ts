@@ -1,16 +1,16 @@
 import {
   AssetManifest,
   AssetType,
-  Mesh,
-  MeshBasicMaterial,
-  PlaneGeometry,
+  // Mesh,
+  // MeshBasicMaterial,
+  // PlaneGeometry,
   SessionMode,
-  SRGBColorSpace,
+  // SRGBColorSpace,
   AssetManager,
   World,
   IBLTexture,
 } from "@iwsdk/core";
-import { PanelDocument, UIKitDocument } from "@iwsdk/core";
+// import { PanelDocument, UIKitDocument } from "@iwsdk/core";
 
 import {
   AudioSource,
@@ -22,15 +22,19 @@ import {
   ScreenSpace,
 } from "@iwsdk/core";
 
-import { EnvironmentType, LocomotionEnvironment } from "@iwsdk/core";
+// import { EnvironmentType, LocomotionEnvironment } from "@iwsdk/core";
 
 import { PanelSystem } from "./panel.js";
 
 import { Robot } from "./robot.js";
 
-import { RobotSystem } from "./robot.js";
+// import { RobotSystem } from "./robot.js";
 
+import { vrLog } from './vrlog';
 
+vrLog('VR App starting up...');
+vrLog('v0.1.4');
+vrLog('The first model generated may take a few minutes while the cloud GPU model service warms up');
 
 
 const assets: AssetManifest = {
@@ -45,56 +49,40 @@ const assets: AssetManifest = {
     priority: "critical",
   },
 
-  plantSansevieria: {
-    url: "/gltf/plantSansevieria/plantSansevieria.gltf",
-    type: AssetType.GLTF,
-    priority: "critical",
-  },
-  robot: {
-    url: "/gltf/robot/robot.gltf",
-    type: AssetType.GLTF,
-    priority: "critical",
-  },
-  duck: {
-    url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF/Duck.gltf",
-    type: AssetType.GLTF,
-    priority: "background",
-  },
+  // plantSansevieria: {
+  //   url: "/gltf/plantSansevieria/plantSansevieria.gltf",
+  //   type: AssetType.GLTF,
+  //   priority: "critical",
+  // },
+  // robot: {
+  //   url: "/gltf/robot/robot.gltf",
+  //   type: AssetType.GLTF,
+  //   priority: "critical",
+  // },
+  // duck: {
+  //   url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF/Duck.gltf",
+  //   type: AssetType.GLTF,
+  //   priority: "background",
+  // },
 };
 
 
-// Utility function to log messages to VR overlay
-export function vrLog(message: string) {
-  const logDiv = document.getElementById('vrConsole');
-  if (!logDiv) return;
-  const entry = document.createElement('div');
-  entry.textContent = message;
-  logDiv.appendChild(entry);
-  logDiv.scrollTop = logDiv.scrollHeight;
-}
-
-// Fetch a test API and log the result into the VR console
-async function fetchAndLogApi() {
-  try {
-    // Example public API (JSON placeholder)
-    const res = await fetch('https://jsonplaceholder.typicode.com/todos/1');
-    if (!res.ok) {
-      vrLog(`API error: ${res.status} ${res.statusText}`);
-      return;
-    }
-    const data = await res.json();
-    // Log a compact string representation
-    vrLog(`API response: ${JSON.stringify(data)}`);
-  } catch (err: any) {
-    vrLog(`Fetch failed: ${err?.message ?? String(err)}`);
-  }
-}
-
-// Run the fetch but don't block world creatio
-await fetchAndLogApi();
 
 
 let appWorld: any = null;
+
+// Listen for model load events dispatched by UI panels (PanelSystem)
+window.addEventListener('load-model', async (e: any) => {
+  const url = e?.detail?.url as string | undefined;
+  if (!url) return;
+  try {
+    vrLog(`Loading model from panel event: ${url}`);
+    await loadModelUrl(url);
+    vrLog(`Model loaded: ${url}`);
+  } catch (err: any) {
+    vrLog(`Failed to load model from panel event: ${err?.message ?? String(err)}`);
+  }
+});
 
 // Simple overlay UI for pasting a GLTF URL and loading it into the scene
 function createLoadUi() {
@@ -163,12 +151,20 @@ async function loadModelUrl(url: string) {
         (gltf: any) => {
           try {
             const mesh = gltf.scene;
+            // Position/scale the loaded scene/mesh
             mesh.position.set(0, 0, -2);
             mesh.scale.setScalar(1);
-            appWorld
-              .createTransformEntity(mesh)
-              .addComponent(Interactable)
-              .addComponent(DistanceGrabbable, { movementMode: MovementMode.MoveFromTarget });
+
+            // Create a transform entity (SDK wrapper) and attach the raw THREE object as a child.
+            // The grabbing/interaction systems expect the entity.object3D to be the SDK SceneNode
+            // type (St). If we pass the raw GLTF root directly into createTransformEntity, it
+            // may not be the correct instance and the grabbable initialization can be skipped
+            // for the first dynamically-loaded model. Creating an empty transform entity and
+            // adding the GLTF scene as a child ensures pointer/grab initialization runs.
+            const ent = appWorld.createTransformEntity();
+            // ent.object3D is the SDK scene node; add the loaded mesh under it.
+            ent.object3D!.add(mesh);
+            ent.addComponent(Interactable).addComponent(DistanceGrabbable, { movementMode: MovementMode.MoveFromTarget });
             vrLog('Model loaded via GLTFLoader');
             resolve();
           } catch (e) {
@@ -188,7 +184,7 @@ async function loadModelUrl(url: string) {
   }
 }
 
-createLoadUi();
+// createLoadUi();
 
 World.create(document.getElementById("scene-container") as HTMLDivElement, {
   assets,
@@ -218,22 +214,22 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
 
   camera.position.set(0, 1, 0.5);
 
-  const { scene: plantMesh } = AssetManager.getGLTF("plantSansevieria")!;
+  // const { scene: plantMesh } = AssetManager.getGLTF("plantSansevieria")!;
 
-  plantMesh.position.set(1.2, 0.2, -1.8);
-  plantMesh.scale.setScalar(2);
+  // plantMesh.position.set(1.2, 0.2, -1.8);
+  // plantMesh.scale.setScalar(2);
 
-  world
-    .createTransformEntity(plantMesh)
-    .addComponent(Interactable)
-    .addComponent(DistanceGrabbable, {
-      movementMode: MovementMode.MoveFromTarget,
-    });
+  // world
+  //   .createTransformEntity(plantMesh)
+  //   .addComponent(Interactable)
+  //   .addComponent(DistanceGrabbable, {
+  //     movementMode: MovementMode.MoveFromTarget,
+  //   });
 
-  const { scene: robotMesh } = AssetManager.getGLTF("robot")!;
-  // defaults for AR
-  robotMesh.position.set(-1.2, 0.4, -1.8);
-  robotMesh.scale.setScalar(1);
+  // const { scene: robotMesh } = AssetManager.getGLTF("robot")!;
+  // // defaults for AR
+  // robotMesh.position.set(-1.2, 0.4, -1.8);
+  // robotMesh.scale.setScalar(1);
   
   const levelRoot = world.activeLevel.value;
 
@@ -242,15 +238,15 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     intensity: 0.8, // Slightly brighter than default
   });
 
-  world
-    .createTransformEntity(robotMesh)
-    .addComponent(Interactable)
-    .addComponent(Robot)
-    .addComponent(AudioSource, {
-      src: "/audio/chime.mp3",
-      maxInstances: 3,
-      playbackMode: PlaybackMode.FadeRestart,
-    });
+  // world
+  //   .createTransformEntity(robotMesh)
+  //   .addComponent(Interactable)
+  //   .addComponent(Robot)
+  //   .addComponent(AudioSource, {
+  //     src: "/audio/chime.mp3",
+  //     maxInstances: 3,
+  //     playbackMode: PlaybackMode.FadeRestart,
+  //   });
 
   const panelEntity = world
     .createTransformEntity()
@@ -261,176 +257,32 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     })
     .addComponent(Interactable)
     .addComponent(ScreenSpace, {
-      top: "20px",
-      left: "20px",
-      height: "40%",
+      top: "10vh",
+      left: "10vw",
+      height: "40vh",
+      width: "30vw"
     });
-  panelEntity.object3D!.position.set(0, 1.29, -1.9);
+  panelEntity.object3D!.position.set(-0.8, 1.29, -1.9);
 
   const userInputPanel = world
     .createTransformEntity()
     .addComponent(PanelUI, {
       config: "/ui/userinput.json",
-      maxHeight: 4,
-      maxWidth: 5,
+      maxHeight: 0.8,
+      maxWidth: 1.6,
     })
     .addComponent(Interactable)
     .addComponent(ScreenSpace, {
-      top: "20px",
-      left: "400px",
-      height: "40%",
+      top: "10vh",
+      left: "60vw",
+      height: "40vh",
+      width: "30vw"
     });
-  userInputPanel.object3D!.position.set(0, 1.29, -1.9);
+  userInputPanel.object3D!.position.set(0.8, 1.29, -1.9);
 
-  // Wire up the Generate button using the PanelDocument (UIKit) so element
-  // lookups work even if PanelUI renders into an internal document.
-  try {
-    const doc = PanelDocument.data.document[userInputPanel.index] as UIKitDocument | undefined;
-    if (!doc) {
-      // If the document isn't ready yet, subscribe to qualify events in PanelSystem
-      // or poll for a short time. We'll poll briefly here.
-      let attempts = 0;
-      const poll = setInterval(() => {
-        const d = PanelDocument.data.document[userInputPanel.index] as UIKitDocument | undefined;
-        attempts += 1;
-        if (d) {
-          clearInterval(poll);
-          wirePanelDocument(d);
-        } else if (attempts > 10) {
-          clearInterval(poll);
-          vrLog('Panel document for user input not available');
-        }
-      }, 200);
-    } else {
-      wirePanelDocument(doc);
-    }
-  } catch (e: any) {
-    vrLog(`Error initializing panel wiring: ${e?.message ?? String(e)}`);
-  }
-
-  function wirePanelDocument(document: UIKitDocument) {
-    try {
-      // UIKit elements expose a getElementById API similar to DOM
-      const promptEl = document.getElementById('prompt') as any;
-      const generateEl = document.getElementById('generate') as any;
-      const statusEl = document.getElementById('status') as any;
-
-      if (!generateEl) {
-        vrLog('Generate element not found in panel document');
-        return;
-      }
-
-      generateEl.addEventListener('click', async () => {
-        // For input elements in UIKit, value may be exposed as .value or via getProperties().
-        // Debug the available shape so we can adapt if necessary.
-        try {
-          vrLog(`promptEl shape: keys=${Object.keys(promptEl || {}).join(',')}`);
-        } catch (_) {}
-
-        let prompt = '';
-        try {
-          if (promptEl) {
-            // 1) direct value
-            if (typeof promptEl.value === 'string' && promptEl.value) {
-              prompt = promptEl.value;
-              vrLog('prompt read from promptEl.value');
-            }
-
-            // 2) inputProperties (UIKit seems to expose this)
-            if (!prompt && promptEl.inputProperties && typeof promptEl.inputProperties.value === 'string') {
-              prompt = promptEl.inputProperties.value;
-              vrLog('prompt read from promptEl.inputProperties.value');
-            }
-
-            // 3) properties (fallback)
-            if (!prompt && promptEl.properties && typeof promptEl.properties.value === 'string') {
-              prompt = promptEl.properties.value;
-              vrLog('prompt read from promptEl.properties.value');
-            }
-            if (!prompt && promptEl.properties && typeof promptEl.properties.text === 'string') {
-              prompt = promptEl.properties.text;
-              vrLog('prompt read from promptEl.properties.text');
-            }
-
-            // 4) getProperties() API
-            if (!prompt && promptEl.getProperties) {
-              try {
-                const props = promptEl.getProperties();
-                if (props) {
-                  prompt = (props.value ?? props.text ?? '') as string;
-                  if (prompt) vrLog('prompt read from promptEl.getProperties()');
-                }
-              } catch (_) {}
-            }
-
-            // 5) getProperty API
-            if (!prompt && promptEl.getProperty) {
-              try {
-                prompt = (promptEl.getProperty('value') ?? promptEl.getProperty('text') ?? '') as string;
-                if (prompt) vrLog('prompt read from promptEl.getProperty()');
-              } catch (_) {}
-            }
-
-            // 6) underlying DOM element
-            if (!prompt && promptEl.element && typeof promptEl.element.value === 'string') {
-              prompt = promptEl.element.value;
-              vrLog('prompt read from promptEl.element.value');
-            }
-          }
-        } catch (err: any) {
-          vrLog(`Error reading prompt element: ${err?.message ?? String(err)}`);
-        }
-
-        if (!prompt) {
-          if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Please enter a prompt.' });
-          if (statusEl && !statusEl.setProperties) statusEl.textContent = 'Please enter a prompt.';
-          vrLog('Generate: empty prompt');
-          return;
-        }
-
-        if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: 'Sending request...' });
-        if (statusEl && !statusEl.setProperties) statusEl.textContent = 'Sending request...';
-        vrLog(`Generate: sending prompt: ${prompt}`);
-
-        try {
-          const res = await fetch('http://localhost:8080/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, quality: 'ultra' }),
-          });
-
-          if (!res.ok) {
-            const text = await res.text();
-            const msg = `Generate failed: ${res.status} ${res.statusText} - ${text}`;
-            if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: msg });
-            if (statusEl && !statusEl.setProperties) statusEl.textContent = msg;
-            vrLog(msg);
-            return;
-          }
-
-          let bodyText = '';
-          try {
-            const data = await res.json();
-            bodyText = JSON.stringify(data);
-          } catch (e) {
-            bodyText = await res.text();
-          }
-
-          const successMsg = `Generate success: ${bodyText}`;
-          if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: successMsg });
-          if (statusEl && !statusEl.setProperties) statusEl.textContent = successMsg;
-          vrLog(successMsg);
-        } catch (err: any) {
-          const msg = `Generate error: ${err?.message ?? String(err)}`;
-          if (statusEl && statusEl.setProperties) statusEl.setProperties({ text: msg });
-          if (statusEl && !statusEl.setProperties) statusEl.textContent = msg;
-          vrLog(msg);
-        }
-      });
-    } catch (e: any) {
-      vrLog(`Error wiring panel document: ${e?.message ?? String(e)}`);
-    }
-  }
+  // Panel wiring (prompt/generate/status) is handled by `PanelSystem` in
+  // `vr-app/src/panel.ts` via the `userInputPanel.subscribe('qualify', ...)`
+  // handler. No local polling is required here.
 
   // const webxrLogoTexture = AssetManager.getTexture("webxr")!;
   // webxrLogoTexture.colorSpace = SRGBColorSpace;
@@ -445,21 +297,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   // logoBanner.position.set(0, 1, 1.8);
   // logoBanner.rotateY(Math.PI);
 
-  world.registerSystem(PanelSystem).registerSystem(RobotSystem);
-
-  // Create Duck model from manifest (loaded via AssetManager).
-  // AssetManager may not have finished loading the duck yet, so poll for it
-  // with a short timeout.
-  async function waitForGLTF(key: string, timeoutMs = 5000, intervalMs = 200) {
-    const start = performance.now();
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const res = AssetManager.getGLTF(key);
-      if (res) return res;
-      if (performance.now() - start > timeoutMs) return null;
-      await new Promise((r) => setTimeout(r, intervalMs));
-    }
-  }
-
+  world.registerSystem(PanelSystem);
+  // world.registerSystem(RobotSystem);
 
 });
